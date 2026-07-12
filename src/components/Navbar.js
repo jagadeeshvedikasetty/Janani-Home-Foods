@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useTheme } from '../ThemeContext';
 import './Navbar.css';
 
@@ -75,12 +75,12 @@ function Navbar() {
     <>
       {/* Mobile Top Bar */}
       <div className="mobile-topbar">
-        <div className="mobile-brand">
+        <Link to="/" className="mobile-brand">
           <span className="brand-logo" style={{ display: 'flex', alignItems: 'center' }}>
             <img src="/logo.png" alt="Janani Logo" style={{ width: 28, height: 28, borderRadius: '6px', objectFit: 'cover' }} />
           </span>
           <span className="brand-name" style={{ fontSize: '0.9rem' }}>Janani</span>
-        </div>
+        </Link>
         <div className="mobile-topbar-actions">
           <button
             className="mobile-theme-btn"
@@ -109,7 +109,7 @@ function Navbar() {
 
       {/* Sidebar Nav */}
       <nav className={`navbar ${mobileOpen ? 'mobile-open' : ''}`}>
-        <div className="navbar-brand">
+        <Link to="/" className="navbar-brand">
           <div className="brand-logo" style={{ display: 'flex', alignItems: 'center' }}>
             <img src="/logo.png" alt="Janani Logo" style={{ width: 38, height: 38, borderRadius: '8px', objectFit: 'cover' }} />
           </div>
@@ -117,7 +117,7 @@ function Navbar() {
             <span className="brand-name">Janani</span>
             <span className="brand-sub">Home Food Store</span>
           </div>
-        </div>
+        </Link>
 
         <ul className="nav-list">
           {NAV_ITEMS.map((item) => (
