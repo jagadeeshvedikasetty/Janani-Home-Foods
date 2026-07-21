@@ -14,6 +14,7 @@ function toLocalDatetimeString(d = new Date()) {
 const EMPTY_FORM = {
   date: toLocalDatetimeString(),
   itemName: '',
+  quantity: '',
   amount: '',
   paymentMode: 'cash',
 };
@@ -35,12 +36,12 @@ function formatDate(d) {
 
 function Sales() {
   const [sales, setSales] = useState([]);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState(null);
   const [selectedViewItem, setSelectedViewItem] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [cashReceived, setCashReceived] = useState('');
@@ -52,10 +53,13 @@ function Sales() {
     setError('');
     try {
       const params = filterDate ? { date: filterDate } : {};
-      const res = await api.get('/api/sales', { params });
-      setSales(res.data);
+      const resSales = await api.get('/api/sales', { params });
+      setSales(resSales.data);
+
+      const resProducts = await api.get('/api/products');
+      setProducts(resProducts.data);
     } catch {
-      setError('Failed to load sales.');
+      setError('Failed to load sales or products.');
     } finally {
       setLoading(false);
     }
@@ -64,27 +68,31 @@ function Sales() {
   useEffect(() => { fetchSales(); }, [fetchSales]);
 
   const openAdd = () => {
-    setEditItem(null);
     setForm(EMPTY_FORM);
     setCashReceived('');
     setFormError('');
     setModalOpen(true);
   };
 
-  const openEdit = (sale) => {
-    setEditItem(sale);
-    setForm({
-      date: sale.date ? toLocalDatetimeString(sale.date) : '',
-      itemName: sale.itemName,
-      amount: sale.amount,
-      paymentMode: sale.paymentMode,
-    });
-    setCashReceived('');
-    setFormError('');
-    setModalOpen(true);
-  };
 
-  const handleChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => {
+      const updated = { ...prev, [name]: value };
+      
+      // Auto-calculate if product or quantity changes
+      if (name === 'itemName' || name === 'quantity') {
+        const prod = products.find(p => p.name === updated.itemName);
+        const qty = Number(updated.quantity) || 0;
+        if (prod) {
+          updated.amount = (prod.pricePerKg * qty).toFixed(2);
+        } else {
+          updated.amount = '';
+        }
+      }
+      return updated;
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -97,17 +105,13 @@ function Sales() {
       const payload = {
         ...form,
         date: new Date(form.date).toISOString(),
+        quantity: Number(form.quantity) || 1,
         amount: Number(form.amount),
         cashReceived: form.paymentMode === 'cash' ? Number(cashReceived || 0) : 0,
         changeReturned: form.paymentMode === 'cash' ? Number(cashReceived || 0) - Number(form.amount) : 0
       };
-      if (editItem) {
-        await api.put(`/api/sales/${editItem._id}`, payload);
-        setSuccess('Sale updated successfully.');
-      } else {
-        await api.post('/api/sales', payload);
-        setSuccess('Sale added successfully.');
-      }
+      await api.post('/api/sales', payload);
+      setSuccess('Sale added successfully.');
       setModalOpen(false);
       fetchSales();
       setTimeout(() => setSuccess(''), 3000);
@@ -187,6 +191,7 @@ function Sales() {
                     <tr>
                       <th>Date</th>
                       <th>Item / Description</th>
+                      <th>Qty</th>
                       <th>Amount</th>
                       <th>Payment Mode</th>
                       <th>Actions</th>
@@ -197,6 +202,7 @@ function Sales() {
                       <tr key={s._id} onClick={() => setSelectedViewItem(s)} style={{ cursor: 'pointer' }} title="Click to view details">
                         <td data-label="Date" style={{ color: 'var(--text-secondary)' }}>{formatDate(s.date)}</td>
                         <td data-label="Item" style={{ fontWeight: 600 }}>{s.itemName}</td>
+                        <td data-label="Qty" style={{ fontWeight: 600 }}>{s.quantity || 1}</td>
                         <td data-label="Amount" style={{ fontWeight: 700, color: '#4ade80' }}>{formatCurrency(s.amount)}</td>
                         <td data-label="Payment Mode">
                           <span className={`badge badge-${s.paymentMode}`}>
@@ -206,12 +212,6 @@ function Sales() {
                         </td>
                         <td data-label="Actions">
                           <div style={{ display: 'flex', gap: 8 }}>
-                            <button className="btn-icon edit" title="Edit" onClick={(e) => { e.stopPropagation(); openEdit(s); }}>
-                              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-                                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-                              </svg>
-                            </button>
                             <button className="btn-icon delete" title="Delete" onClick={(e) => { e.stopPropagation(); handleDelete(s._id); }}>
                               <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                 <polyline points="3 6 5 6 21 6" />
@@ -241,7 +241,7 @@ function Sales() {
       )}
 
       {/* Add / Edit Modal */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? 'Edit Sale' : 'Add New Sale'}>
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Add New Sale">
         <form onSubmit={handleSubmit}>
           {formError && <div className="alert alert-error">⚠ {formError}</div>}
 
@@ -250,9 +250,20 @@ function Sales() {
             <input id="sale-date" type="datetime-local" name="date" className="form-control" value={form.date} onChange={handleChange} required />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="sale-item">Item / Description</label>
-            <input id="sale-item" type="text" name="itemName" className="form-control" placeholder="e.g. Idli, Sambar, Combo Meal" value={form.itemName} onChange={handleChange} required />
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="sale-item">Select Product</label>
+              <select id="sale-item" name="itemName" className="form-control" value={form.itemName} onChange={handleChange} required>
+                <option value="" disabled>Enter your product only</option>
+                {products.map(p => (
+                  <option key={p._id} value={p.name}>{p.name} (₹{p.pricePerKg}/kg)</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label htmlFor="sale-quantity">Quantity</label>
+              <input id="sale-quantity" type="number" name="quantity" className="form-control" placeholder="Quantity (e.g. Kg)" min="0" step="0.01" value={form.quantity} onChange={handleChange} required />
+            </div>
           </div>
 
           <div className="form-row">
@@ -310,7 +321,7 @@ function Sales() {
           <div className="form-actions">
             <button type="button" className="btn btn-ghost" onClick={() => setModalOpen(false)}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : editItem ? 'Update Sale' : 'Add Sale'}
+              {saving ? 'Saving…' : 'Add Sale'}
             </button>
           </div>
         </form>
@@ -327,7 +338,7 @@ function Sales() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
                 <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Item Description</span>
-                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{selectedViewItem.itemName}</span>
+                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{selectedViewItem.itemName} ({selectedViewItem.quantity || 1})</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
                 <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Amount Paid</span>

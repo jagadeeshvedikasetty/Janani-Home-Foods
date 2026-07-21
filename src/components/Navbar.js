@@ -36,6 +36,15 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    to: '/products',
+    label: 'Products',
+    icon: (
+      <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+        <path d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+      </svg>
+    ),
+  },
 ];
 
 const SunIcon = () => (

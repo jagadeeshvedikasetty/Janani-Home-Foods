@@ -5,6 +5,7 @@ import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import Sales from './pages/Sales';
 import Orders from './pages/Orders';
+import Products from './pages/Products';
 import './index.css';
 
 function App() {
@@ -58,6 +59,7 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/sales" element={<Sales />} />
+              <Route path="/products" element={<Products />} />
               <Route path="/orders" element={<Orders />} />
             </Routes>
           </main>

@@ -15,6 +15,7 @@ function toLocalDatetimeString(d = new Date()) {
 const EMPTY_FORM = {
   customerName: '',
   itemName: '',
+  quantity: '',
   totalAmount: '',
   advancePaid: '',
   advancePaymentMode: 'cash',
@@ -39,12 +40,12 @@ function formatDate(d) {
 
 function Orders() {
   const [orders, setOrders] = useState([]);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState(null);
   const [selectedViewItem, setSelectedViewItem] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [cashReceived, setCashReceived] = useState('');
@@ -56,10 +57,13 @@ function Orders() {
     setError('');
     try {
       const params = statusFilter ? { status: statusFilter } : {};
-      const res = await api.get('/api/orders', { params });
-      setOrders(res.data);
+      const resOrders = await api.get('/api/orders', { params });
+      setOrders(resOrders.data);
+      
+      const resProducts = await api.get('/api/products');
+      setProducts(resProducts.data);
     } catch {
-      setError('Failed to load orders.');
+      setError('Failed to load orders or products.');
     } finally {
       setLoading(false);
     }
@@ -68,30 +72,31 @@ function Orders() {
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
   const openAdd = () => {
-    setEditItem(null);
     setForm(EMPTY_FORM);
     setCashReceived('');
     setFormError('');
     setModalOpen(true);
   };
 
-  const openEdit = (order) => {
-    setEditItem(order);
-    setForm({
-      customerName: order.customerName,
-      itemName: order.itemName,
-      totalAmount: order.totalAmount,
-      advancePaid: order.advancePaid,
-      advancePaymentMode: order.advancePaymentMode,
-      status: order.status,
-      date: order.date ? toLocalDatetimeString(order.date) : '',
-    });
-    setCashReceived('');
-    setFormError('');
-    setModalOpen(true);
-  };
 
-  const handleChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => {
+      const updated = { ...prev, [name]: value };
+      
+      // Auto-calculate if product or quantity changes
+      if (name === 'itemName' || name === 'quantity') {
+        const prod = products.find(p => p.name === updated.itemName);
+        const qty = Number(updated.quantity) || 0;
+        if (prod) {
+          updated.totalAmount = (prod.pricePerKg * qty).toFixed(2);
+        } else {
+          updated.totalAmount = '';
+        }
+      }
+      return updated;
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -107,18 +112,14 @@ function Orders() {
       const payload = {
         ...form,
         date: new Date(form.date).toISOString(),
+        quantity: Number(form.quantity) || 1,
         totalAmount: Number(form.totalAmount),
         advancePaid: Number(form.advancePaid),
         cashReceived: form.advancePaymentMode === 'cash' ? Number(cashReceived || 0) : 0,
         changeReturned: form.advancePaymentMode === 'cash' ? Number(cashReceived || 0) - Number(form.advancePaid) : 0
       };
-      if (editItem) {
-        await api.put(`/api/orders/${editItem._id}`, payload);
-        setSuccess('Order updated successfully.');
-      } else {
-        await api.post('/api/orders', payload);
-        setSuccess('Order created successfully.');
-      }
+      await api.post('/api/orders', payload);
+      setSuccess('Order created successfully.');
       setModalOpen(false);
       fetchOrders();
       setTimeout(() => setSuccess(''), 3000);
@@ -205,6 +206,7 @@ function Orders() {
                     <th>Date</th>
                     <th>Customer</th>
                     <th>Item</th>
+                    <th>Qty</th>
                     <th>Total</th>
                     <th>Advance</th>
                     <th>Mode</th>
@@ -219,6 +221,7 @@ function Orders() {
                       <td data-label="Date" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{formatDate(o.date)}</td>
                       <td data-label="Customer" style={{ fontWeight: 600 }}>{o.customerName}</td>
                       <td data-label="Item" style={{ color: 'var(--text-secondary)' }}>{o.itemName}</td>
+                      <td data-label="Qty" style={{ fontWeight: 600 }}>{o.quantity || 1}</td>
                       <td data-label="Total" style={{ fontWeight: 700 }}>{formatCurrency(o.totalAmount)}</td>
                       <td data-label="Advance" style={{ color: '#4ade80', fontWeight: 600 }}>{formatCurrency(o.advancePaid)}</td>
                       <td data-label="Mode">
@@ -242,12 +245,6 @@ function Orders() {
                       </td>
                       <td data-label="Actions">
                         <div style={{ display: 'flex', gap: 8 }}>
-                          <button className="btn-icon edit" title="Edit" onClick={(e) => { e.stopPropagation(); openEdit(o); }}>
-                            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-                              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-                            </svg>
-                          </button>
                           <button className="btn-icon delete" title="Delete" onClick={(e) => { e.stopPropagation(); handleDelete(o._id); }}>
                             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                               <polyline points="3 6 5 6 21 6" />
@@ -268,7 +265,7 @@ function Orders() {
       )}
 
       {/* Add / Edit Modal */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? 'Edit Order' : 'New Order'}>
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="New Order">
         <form onSubmit={handleSubmit}>
           {formError && <div className="alert alert-error">⚠ {formError}</div>}
 
@@ -283,9 +280,20 @@ function Orders() {
             </div>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="order-item">Item Name</label>
-            <input id="order-item" type="text" name="itemName" className="form-control" placeholder="Item / dish ordered" value={form.itemName} onChange={handleChange} required />
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="order-item">Select Product</label>
+              <select id="order-item" name="itemName" className="form-control" value={form.itemName} onChange={handleChange} required>
+                <option value="" disabled>Enter your product only</option>
+                {products.map(p => (
+                  <option key={p._id} value={p.name}>{p.name} (₹{p.pricePerKg}/kg)</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label htmlFor="order-quantity">Quantity</label>
+              <input id="order-quantity" type="number" name="quantity" className="form-control" placeholder="Quantity (e.g. Kg)" min="0" step="0.01" value={form.quantity} onChange={handleChange} required />
+            </div>
           </div>
 
           <div className="form-row">
@@ -368,7 +376,7 @@ function Orders() {
           <div className="form-actions">
             <button type="button" className="btn btn-ghost" onClick={() => setModalOpen(false)}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : editItem ? 'Update Order' : 'Create Order'}
+              {saving ? 'Saving…' : 'Create Order'}
             </button>
           </div>
         </form>
@@ -389,7 +397,7 @@ function Orders() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
                 <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Item Description</span>
-                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{selectedViewItem.itemName}</span>
+                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{selectedViewItem.itemName} ({selectedViewItem.quantity || 1})</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
                 <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Total Amount</span>
