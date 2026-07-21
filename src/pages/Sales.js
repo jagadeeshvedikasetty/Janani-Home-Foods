@@ -15,6 +15,7 @@ const EMPTY_FORM = {
   date: toLocalDatetimeString(),
   itemName: '',
   quantity: '',
+  unit: 'kg',
   amount: '',
   paymentMode: 'cash',
 };
@@ -80,12 +81,21 @@ function Sales() {
     setForm((prev) => {
       const updated = { ...prev, [name]: value };
       
-      // Auto-calculate if product or quantity changes
-      if (name === 'itemName' || name === 'quantity') {
-        const prod = products.find(p => p.name === updated.itemName);
+      // Auto-calculate if product, quantity, or unit changes
+      if (name === 'itemName' || name === 'quantity' || name === 'unit') {
+        const itemName = name === 'itemName' ? value : updated.itemName;
+        const prod = products.find(p => p.name === itemName);
+        
+        if (name === 'itemName' && prod) {
+           updated.unit = prod.unit === 'kg' ? 'kg' : prod.unit;
+        }
+
         const qty = Number(updated.quantity) || 0;
+        
         if (prod) {
-          updated.amount = (prod.pricePerKg * qty).toFixed(2);
+          const isWeightBased = prod.unit === 'kg';
+          const multiplier = (isWeightBased && updated.unit === 'g') ? 0.001 : 1;
+          updated.amount = (prod.price * qty * multiplier).toFixed(2);
         } else {
           updated.amount = '';
         }
@@ -106,6 +116,7 @@ function Sales() {
         ...form,
         date: new Date(form.date).toISOString(),
         quantity: Number(form.quantity) || 1,
+        unit: form.unit || 'kg',
         amount: Number(form.amount),
         cashReceived: form.paymentMode === 'cash' ? Number(cashReceived || 0) : 0,
         changeReturned: form.paymentMode === 'cash' ? Number(cashReceived || 0) - Number(form.amount) : 0
@@ -202,7 +213,7 @@ function Sales() {
                       <tr key={s._id} onClick={() => setSelectedViewItem(s)} style={{ cursor: 'pointer' }} title="Click to view details">
                         <td data-label="Date" style={{ color: 'var(--text-secondary)' }}>{formatDate(s.date)}</td>
                         <td data-label="Item" style={{ fontWeight: 600 }}>{s.itemName}</td>
-                        <td data-label="Qty" style={{ fontWeight: 600 }}>{s.quantity || 1}</td>
+                        <td data-label="Qty" style={{ fontWeight: 600 }}>{s.quantity || 1} {s.unit || 'kg'}</td>
                         <td data-label="Amount" style={{ fontWeight: 700, color: '#4ade80' }}>{formatCurrency(s.amount)}</td>
                         <td data-label="Payment Mode">
                           <span className={`badge badge-${s.paymentMode}`}>
@@ -256,13 +267,29 @@ function Sales() {
               <select id="sale-item" name="itemName" className="form-control" value={form.itemName} onChange={handleChange} required>
                 <option value="" disabled>Enter your product only</option>
                 {products.map(p => (
-                  <option key={p._id} value={p.name}>{p.name} (₹{p.pricePerKg}/kg)</option>
+                  <option key={p._id} value={p.name}>{p.name} (₹{p.price}/{p.unit || 'kg'})</option>
                 ))}
               </select>
             </div>
-            <div className="form-group">
-              <label htmlFor="sale-quantity">Quantity</label>
-              <input id="sale-quantity" type="number" name="quantity" className="form-control" placeholder="Quantity (e.g. Kg)" min="0" step="0.01" value={form.quantity} onChange={handleChange} required />
+            <div className="form-group" style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 2 }}>
+                <label htmlFor="sale-quantity">Quantity</label>
+                <input id="sale-quantity" type="number" name="quantity" className="form-control" placeholder="Quantity" min="0" step="0.01" value={form.quantity} onChange={handleChange} required />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label htmlFor="sale-unit">Unit</label>
+                <select id="sale-unit" name="unit" className="form-control" value={form.unit} onChange={handleChange}>
+                  <option value="kg">kg</option>
+                  <option value="g">grams</option>
+                  <option value="liter">liter</option>
+                  <option value="piece">piece</option>
+                  <option value="packet">packet</option>
+                  <option value="liter">liter</option>
+                  <option value="ml">ml</option>
+                  <option value="piece">piece</option>
+                  <option value="packet">packet</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -338,7 +365,7 @@ function Sales() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
                 <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Item Description</span>
-                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{selectedViewItem.itemName} ({selectedViewItem.quantity || 1})</span>
+                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{selectedViewItem.itemName} ({selectedViewItem.quantity || 1} {selectedViewItem.unit || 'kg'})</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
                 <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Amount Paid</span>

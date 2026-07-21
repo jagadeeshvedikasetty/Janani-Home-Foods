@@ -4,7 +4,8 @@ import Modal from '../components/Modal';
 
 const EMPTY_FORM = {
   name: '',
-  pricePerKg: '',
+  price: '',
+  unit: 'kg',
 };
 
 function formatCurrency(n) {
@@ -48,7 +49,8 @@ function Products() {
     setEditItem(product);
     setForm({
       name: product.name,
-      pricePerKg: product.pricePerKg,
+      price: product.price,
+      unit: product.unit || 'kg',
     });
     setFormError('');
     setModalOpen(true);
@@ -60,13 +62,14 @@ function Products() {
     e.preventDefault();
     setFormError('');
     if (!form.name.trim()) return setFormError('Product name is required.');
-    if (!form.pricePerKg || Number(form.pricePerKg) < 0) return setFormError('Valid price is required.');
+    if (!form.price || Number(form.price) < 0) return setFormError('Valid price is required.');
 
     setSaving(true);
     try {
       const payload = {
         name: form.name.trim(),
-        pricePerKg: Number(form.pricePerKg),
+        price: Number(form.price),
+        unit: form.unit,
       };
       if (editItem) {
         await api.put(`/api/products/${editItem._id}`, payload);
@@ -133,7 +136,7 @@ function Products() {
                 <thead>
                   <tr>
                     <th>Product Name</th>
-                    <th>Price per Kg</th>
+                    <th>Price</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -141,8 +144,8 @@ function Products() {
                   {products.map((p) => (
                     <tr key={p._id}>
                       <td data-label="Product Name" style={{ fontWeight: 600 }}>{p.name}</td>
-                      <td data-label="Price per Kg" style={{ fontWeight: 700, color: '#4ade80' }}>
-                        {formatCurrency(p.pricePerKg)}
+                      <td data-label="Price" style={{ fontWeight: 700, color: '#4ade80' }}>
+                        {formatCurrency(p.price)} / {p.unit || 'kg'}
                       </td>
                       <td data-label="Actions">
                         <div style={{ display: 'flex', gap: 8 }}>
@@ -178,12 +181,24 @@ function Products() {
 
           <div className="form-group">
             <label htmlFor="product-name">Product Name</label>
-            <input id="product-name" type="text" name="name" className="form-control" placeholder="e.g. Rice, Wheat" value={form.name} onChange={handleChange} required />
+            <input id="product-name" type="text" name="name" className="form-control" placeholder="enter your product only" value={form.name} onChange={handleChange} required />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="product-price">Price per Kg (₹)</label>
-            <input id="product-price" type="number" name="pricePerKg" className="form-control" placeholder="0.00" min="0" step="0.01" value={form.pricePerKg} onChange={handleChange} required />
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <div className="form-group" style={{ flex: 2 }}>
+              <label htmlFor="product-price">Price (₹)</label>
+              <input id="product-price" type="number" name="price" className="form-control" placeholder="0.00" min="0" step="0.01" value={form.price} onChange={handleChange} required />
+            </div>
+            
+            <div className="form-group" style={{ flex: 1 }}>
+              <label htmlFor="product-unit">Unit</label>
+              <select id="product-unit" name="unit" className="form-control" value={form.unit} onChange={handleChange} required>
+                <option value="kg">Kg</option>
+                <option value="liter">Liter</option>
+                <option value="piece">Piece</option>
+                <option value="packet">Packet</option>
+              </select>
+            </div>
           </div>
 
           <div className="form-actions" style={{ marginTop: 24 }}>
