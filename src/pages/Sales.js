@@ -93,9 +93,7 @@ function Sales() {
         const qty = Number(updated.quantity) || 0;
         
         if (prod) {
-          const isWeightBased = prod.unit === 'kg';
-          const multiplier = (isWeightBased && updated.unit === 'g') ? 0.001 : 1;
-          updated.amount = (prod.price * qty * multiplier).toFixed(2);
+          updated.amount = (prod.price * qty).toFixed(2);
         } else {
           updated.amount = '';
         }
@@ -271,25 +269,9 @@ function Sales() {
                 ))}
               </select>
             </div>
-            <div className="form-group" style={{ display: 'flex', gap: 8 }}>
-              <div style={{ flex: 2 }}>
-                <label htmlFor="sale-quantity">Quantity</label>
-                <input id="sale-quantity" type="number" name="quantity" className="form-control" placeholder="Quantity" min="0" step="0.01" value={form.quantity} onChange={handleChange} required />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label htmlFor="sale-unit">Unit</label>
-                <select id="sale-unit" name="unit" className="form-control" value={form.unit} onChange={handleChange}>
-                  <option value="kg">kg</option>
-                  <option value="g">grams</option>
-                  <option value="liter">liter</option>
-                  <option value="piece">piece</option>
-                  <option value="packet">packet</option>
-                  <option value="liter">liter</option>
-                  <option value="ml">ml</option>
-                  <option value="piece">piece</option>
-                  <option value="packet">packet</option>
-                </select>
-              </div>
+            <div className="form-group">
+              <label htmlFor="sale-quantity">Quantity ({form.unit})</label>
+              <input id="sale-quantity" type="number" name="quantity" className="form-control" placeholder="Quantity" min="0" step="0.01" value={form.quantity} onChange={handleChange} required />
             </div>
           </div>
 

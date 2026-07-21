@@ -97,9 +97,7 @@ function Orders() {
         const qty = Number(updated.quantity) || 0;
         
         if (prod) {
-          const isWeightBased = prod.unit === 'kg';
-          const multiplier = (isWeightBased && updated.unit === 'g') ? 0.001 : 1;
-          updated.totalAmount = (prod.price * qty * multiplier).toFixed(2);
+          updated.totalAmount = (prod.price * qty).toFixed(2);
         } else {
           updated.totalAmount = '';
         }
@@ -301,22 +299,9 @@ function Orders() {
                 ))}
               </select>
             </div>
-            <div className="form-group" style={{ display: 'flex', gap: 8 }}>
-              <div style={{ flex: 2 }}>
-                <label htmlFor="order-quantity">Quantity</label>
-                <input id="order-quantity" type="number" name="quantity" className="form-control" placeholder="Quantity" min="0" step="0.01" value={form.quantity} onChange={handleChange} required />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label htmlFor="order-unit">Unit</label>
-                <select id="order-unit" name="unit" className="form-control" value={form.unit} onChange={handleChange}>
-                  <option value="kg">kg</option>
-                  <option value="g">grams</option>
-                  <option value="liter">liter</option>
-                  <option value="ml">ml</option>
-                  <option value="piece">piece</option>
-                  <option value="packet">packet</option>
-                </select>
-              </div>
+            <div className="form-group">
+              <label htmlFor="order-quantity">Quantity ({form.unit})</label>
+              <input id="order-quantity" type="number" name="quantity" className="form-control" placeholder="Quantity" min="0" step="0.01" value={form.quantity} onChange={handleChange} required />
             </div>
           </div>
 
